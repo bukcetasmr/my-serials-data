@@ -1,0 +1,264 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Мои сериалы</title>
+
+<style>
+:root {
+  --accent: #ffb400;
+  --bg: #121212;
+  --card: #1e1e1e;
+  --cols: 4;
+}
+
+body {
+  font-family: "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  padding: 40px;
+}
+
+.themeBox {
+  position: fixed;
+  top: 15px;
+  right: 15px;
+  display: flex;
+  gap: 5px;
+}
+
+select {
+  background: #1e1e1e;
+  color: white;
+  border: 1px solid var(--accent);
+  padding: 5px;
+}
+
+.searchBox {
+  position: relative;
+  width: 300px;
+}
+
+#search {
+  padding: 10px 35px 10px 10px;
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  background: #1e1e1e;
+  color: white;
+  outline: none;
+}
+
+#clearSearch {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  color: #aaa;
+  font-size: 14px;
+  display: none;
+  transition: 0.2s;
+}
+
+#clearSearch:hover {
+  color: #ff4444;
+}
+
+#linksContainer {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), 1fr);
+  gap: 10px;
+  width: 100%;
+  max-width: 1200px;
+}
+
+h1 { color: var(--accent); }
+
+.button {
+  box-sizing: border-box;
+  background: var(--card);
+  border: 2px solid var(--accent);
+  color: var(--accent);
+  padding: 15px;
+  border-radius: 8px;
+  transition: 0.2s;
+  text-align: center;
+  width: 100%;
+  text-decoration: none;
+}
+
+.button:hover {
+  background: var(--accent);
+  color: black;
+  transform: scale(1.03);
+}
+
+.editBtn {
+  position: fixed;
+  top: 15px;
+  left: 15px;
+  z-index: 1000;
+  width: auto;
+  padding: 10px 15px;
+}
+
+/* стили */
+.glass .button { backdrop-filter: blur(10px); background: rgba(30,30,30,0.6); }
+.neon .button { box-shadow: 0 0 10px var(--accent); }
+.soft .button { border-radius: 20px; }
+.minimal .button { border: none; border-bottom: 2px solid var(--accent); }
+.bold .button { font-weight: bold; }
+
+</style>
+</head>
+
+<body>
+
+<div class="themeBox">
+  <select id="colorSelect">
+    <option value="#ffb400">🟠</option>
+    <option value="#a855f7">🟣</option>
+    <option value="#22c55e">🟢</option>
+    <option value="#3b82f6">🔵</option>
+    <option value="#ef4444">🔴</option>
+    <option value="#ec4899">🌸</option>
+  </select>
+
+  <select id="styleSelect">
+    <option value="">Default</option>
+    <option value="glass">Glass</option>
+    <option value="neon">Neon</option>
+    <option value="soft">Soft</option>
+    <option value="minimal">Minimal</option>
+    <option value="bold">Bold</option>
+  </select>
+
+  <select id="colsSelect">
+    <option value="3">3</option>
+    <option value="4">4</option>
+    <option value="5">5</option>
+    <option value="6">6</option>
+  </select>
+</div>
+
+<a class="button editBtn" href="edit.html">Редактировать</a>
+<a class="button" onclick="loadFromCloud()">🔄 Обновить из облака</a>
+
+<h1>Мои сериалы 🎬</h1>
+
+<div class="searchBox">
+  <input type="text" id="search" placeholder="🔍 Поиск по названию...">
+  <span id="clearSearch">✖</span>
+</div>
+
+<div id="linksContainer"></div>
+
+<script>
+const CLOUD_URL_BASE = "https://raw.githubusercontent.com/bukcetasmr/my-serials-data/refs/heads/main/my-serials.json";
+const defaultLinks = [
+  {name:"Неудержимые 3",url:"https://onlinevkino.com/7970-neuderzhimye-3-2014.html"}
+];
+
+let links = [];
+const container = document.getElementById('linksContainer');
+const searchInput = document.getElementById('search');
+const clearBtn = document.getElementById('clearSearch');
+
+async function chooseDataSource() {
+  const choice = confirm(
+    "Нажми ОК — загрузить из облака ☁️\n" +
+    "Нажми Отмена — загрузить из браузера 💾"
+  );
+
+  if (choice) await loadFromCloud();
+  else loadFromLocal();
+
+  renderLinks();
+}
+
+function loadFromLocal() {
+  links = JSON.parse(localStorage.getItem('myLinks')) || defaultLinks;
+}
+
+async function loadFromCloud() {
+  try {
+    const url = CLOUD_URL_BASE + "?t=" + Date.now();
+    const res = await fetch(url, { cache: "no-store" });
+    links = await res.json();
+    localStorage.setItem('myLinks', JSON.stringify(links));
+    renderLinks();
+    alert("Обновлено из облака ☁️");
+  } catch (e) {
+    alert("Ошибка загрузки из облака, загружаю локально");
+    loadFromLocal();
+    renderLinks();
+  }
+}
+
+function renderLinks(filter="") {
+  container.innerHTML = "";
+  links.forEach(link=>{
+    if (!link.name.toLowerCase().includes(filter.toLowerCase())) return;
+    const a = document.createElement('a');
+
+    if (!link.url || link.url.trim() === "") {
+      a.href="#";
+      a.onclick=(e)=>{ e.preventDefault(); alert("Добавь ссылку ⚠"); };
+    } else {
+      let url = link.url.trim();
+      if (!/^[a-zA-Z]+:\/\//.test(url)) url = "https://" + url;
+      a.href = url;
+      a.target = "_blank";
+    }
+
+    a.textContent = link.name;
+    a.className = "button";
+    container.appendChild(a);
+  });
+}
+
+chooseDataSource();
+
+searchInput.addEventListener("input", () => {
+  renderLinks(searchInput.value);
+  clearBtn.style.display = searchInput.value ? "block" : "none";
+});
+
+clearBtn.addEventListener("click", () => {
+  searchInput.value = "";
+  clearBtn.style.display = "none";
+  renderLinks("");
+});
+
+const colorSelect = document.getElementById("colorSelect");
+const styleSelect = document.getElementById("styleSelect");
+const colsSelect = document.getElementById("colsSelect");
+
+function applyTheme() {
+  document.documentElement.style.setProperty('--accent', colorSelect.value);
+  document.documentElement.style.setProperty('--cols', colsSelect.value);
+  document.body.className = styleSelect.value;
+  localStorage.setItem("themeColor", colorSelect.value);
+  localStorage.setItem("themeStyle", styleSelect.value);
+  localStorage.setItem("themeCols", colsSelect.value);
+}
+
+colorSelect.value = localStorage.getItem("themeColor") || "#ffb400";
+styleSelect.value = localStorage.getItem("themeStyle") || "";
+colsSelect.value = localStorage.getItem("themeCols") || "4";
+
+applyTheme();
+
+colorSelect.onchange = applyTheme;
+styleSelect.onchange = applyTheme;
+colsSelect.onchange = applyTheme;
+</script>
+
+</body>
+</html>
