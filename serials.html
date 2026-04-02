@@ -68,7 +68,7 @@
   margin-top: 10px;
 }
 
-/* КОНТЕНТ (Скрыт по умолчанию) */
+/* КОНТЕНТ */
 #main-content {
   display: none;
   flex-direction: column;
@@ -88,7 +88,6 @@ body {
   margin: 0;
 }
 
-/* СТИЛИ ПРИЛОЖЕНИЯ */
 .themeBox { position: fixed; top: 15px; right: 15px; display: flex; gap: 5px; z-index: 1001; }
 select { background: #1e1e1e; color: white; border: 1px solid var(--accent); padding: 5px; border-radius: 4px; cursor: pointer; }
 .searchBox { position: relative; width: 300px; margin-bottom: 10px; }
@@ -100,12 +99,17 @@ h1 { color: var(--accent); }
 .button:hover { background: var(--accent); color: black; transform: scale(1.03); }
 .editBtn { position: fixed; top: 15px; left: 15px; z-index: 1000; width: auto; padding: 10px 15px; }
 
-/* Темы кнопок */
+/* Темы */
 .glass .button { backdrop-filter: blur(10px); background: rgba(30,30,30,0.6); }
 .neon .button { box-shadow: 0 0 10px var(--accent); }
 .soft .button { border-radius: 20px; }
 .minimal .button { border: none; border-bottom: 2px solid var(--accent); }
 .bold .button { font-weight: bold; }
+
+@media (max-width: 600px) {
+    :root { --cols: 2 !important; }
+    body { padding: 20px; }
+}
 </style>
 </head>
 
@@ -139,17 +143,17 @@ h1 { color: var(--accent); }
         <option value="bold">Bold</option>
       </select>
       <select id="colsSelect">
+        <option value="2">2 (Mob)</option>
         <option value="3">3</option>
         <option value="4">4</option>
         <option value="5">5</option>
-        <option value="6">6</option>
       </select>
     </div>
 
     <a class="button editBtn" href="edit.html">Редактировать</a>
     
     <div style="margin-top: 60px; width: 300px;">
-        <a class="button" onclick="loadFromCloud()">🔄 Обновить из облака</a>
+        <a class="button cloudBtn" onclick="loadFromCloud()">🔄 Обновить из облака</a>
     </div>
 
     <h1>Мои сериалы 🎬</h1>
@@ -163,7 +167,6 @@ h1 { color: var(--accent); }
 </div>
 
 <script>
-// "emV2czEwNQ==" — это зашифрованное слово zevs105
 const SECRET_KEY = "emV2czEwNQ=="; 
 const CLOUD_URL_BASE = "https://raw.githubusercontent.com/bucketasmr/my-serials-data/main/my-serials.json";
 
@@ -173,11 +176,8 @@ const passInput = document.getElementById('pass-input');
 const loginBtn = document.getElementById('login-btn');
 const errorMsg = document.getElementById('error-msg');
 
-// Функция проверки пароля
 function checkAccess() {
     const userInput = passInput.value.trim().toLowerCase();
-    
-    // Кодируем ввод в base64 и сравниваем
     if (btoa(userInput) === SECRET_KEY) {
         localStorage.setItem('site_auth_confirmed', 'true');
         showMainSite();
@@ -194,18 +194,15 @@ function showMainSite() {
     initApp();
 }
 
-// Слушатели для входа
 loginBtn.onclick = checkAccess;
 passInput.onkeypress = (e) => { if (e.key === 'Enter') checkAccess(); };
 
-// Авто-вход, если уже залогинены
 window.onload = () => {
     if (localStorage.getItem('site_auth_confirmed') === 'true') {
         showMainSite();
     }
 };
 
-// --- ЛОГИКА ПРИЛОЖЕНИЯ ---
 let links = [];
 const container = document.getElementById('linksContainer');
 const searchInput = document.getElementById('search');
@@ -222,17 +219,32 @@ function loadFromLocal() {
 }
 
 async function loadFromCloud() {
+    const btn = document.querySelector('.cloudBtn');
+    const originalText = btn.textContent;
+    btn.textContent = "⌛ Загрузка...";
+    
     try {
         const url = CLOUD_URL_BASE + "?t=" + Date.now();
-        const res = await fetch(url);
-        if (!res.ok) throw new Error();
-        links = await res.json();
-        localStorage.setItem('myLinks', JSON.stringify(links));
-        renderLinks();
-        alert("Список обновлен из GitHub! ☁️");
+        const res = await fetch(url, {
+            method: 'GET',
+            cache: 'no-store',
+            headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+        });
+        
+        if (!res.ok) throw new Error("Код: " + res.status);
+        
+        const data = await res.json();
+        if (Array.isArray(data)) {
+            links = data;
+            localStorage.setItem('myLinks', JSON.stringify(links));
+            renderLinks();
+            alert("Обновлено! 🍏");
+        }
     } catch (e) {
-        alert("Ошибка связи с облаком. Проверьте ссылку на JSON.");
+        alert("Ошибка связи с облаком. Проверьте интернет или GitHub.");
         loadFromLocal();
+    } finally {
+        btn.textContent = originalText;
     }
 }
 
@@ -251,14 +263,12 @@ function renderLinks(filter="") {
         a.className = "button";
         
         if (url === "#") {
-            a.onclick = (e) => { e.preventDefault(); alert("Ссылка не добавлена ⚠️"); };
+            a.onclick = (e) => { e.preventDefault(); alert("Ссылка пуста ⚠️"); };
         }
-        
         container.appendChild(a);
     });
 }
 
-// Поиск
 searchInput.addEventListener("input", () => {
     renderLinks(searchInput.value);
     clearBtn.style.display = searchInput.value ? "block" : "none";
@@ -270,7 +280,6 @@ clearBtn.onclick = () => {
     renderLinks("");
 };
 
-// Темы
 function applyTheme() {
     const color = localStorage.getItem("themeColor") || "#ffb400";
     const style = localStorage.getItem("themeStyle") || "";
@@ -295,8 +304,6 @@ function saveTheme() {
 document.getElementById("colorSelect").onchange = saveTheme;
 document.getElementById("styleSelect").onchange = saveTheme;
 document.getElementById("colsSelect").onchange = saveTheme;
-
 </script>
-
 </body>
 </html>
