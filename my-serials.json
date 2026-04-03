@@ -1,5 +1,9 @@
 [
   {
+    "name": "DASHBOARD GOOGLE",
+    "url": "https://console.firebase.google.com/project/bucket-asmr-premium/overview"
+  },
+  {
     "name": "Бесплатная версия АПП",
     "url": "https://bucketasmr.github.io/lite/"
   },
