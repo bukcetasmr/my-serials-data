@@ -30,6 +30,7 @@ body {
   right: 15px;
   display: flex;
   gap: 5px;
+  z-index: 1001;
 }
 
 select {
@@ -37,6 +38,8 @@ select {
   color: white;
   border: 1px solid var(--accent);
   padding: 5px;
+  border-radius: 4px;
+  cursor: pointer;
 }
 
 .searchBox {
@@ -78,7 +81,10 @@ select {
   max-width: 1200px;
 }
 
-h1 { color: var(--accent); }
+h1 { 
+  color: var(--accent); 
+  text-shadow: 0 0 10px rgba(0,0,0,0.5);
+}
 
 .button {
   box-sizing: border-box;
@@ -92,6 +98,10 @@ h1 { color: var(--accent); }
   width: 100%;
   text-decoration: none;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50px;
 }
 
 .button:hover {
@@ -113,7 +123,7 @@ h1 { color: var(--accent); }
 .glass .button { backdrop-filter: blur(10px); background: rgba(30,30,30,0.6); }
 .neon .button { box-shadow: 0 0 10px var(--accent); }
 .soft .button { border-radius: 20px; }
-.minimal .button { border: none; border-bottom: 2px solid var(--accent); }
+.minimal .button { border: none; border-bottom: 2px solid var(--accent); border-radius: 0; }
 .bold .button { font-weight: bold; }
 </style>
 </head>
@@ -148,7 +158,7 @@ h1 { color: var(--accent); }
 </div>
 
 <a class="button editBtn" href="edit.html">Редактировать</a>
-<a class="button" onclick="loadFromCloud()">🔄 Обновить из облака</a>
+<button class="button" onclick="loadFromCloud()" style="width: auto; padding: 10px 20px; margin-bottom: 10px;">🔄 Обновить из облака</button>
 
 <h1>Мои сериалы 🎬</h1>
 
@@ -160,14 +170,8 @@ h1 { color: var(--accent); }
 <div id="linksContainer"></div>
 
 <script>
-const CLOUD_URL_BASE = "https://raw.githubusercontent.com/bukcetasmr/my-serials-data/refs/heads/main/my-serials.json";
-
-// ПРИМЕР: Теперь в объекте можно указывать свойство "color"
-const defaultLinks = [
-  {name: "Неудержимые 3", url: "https://onlinevkino.com/7970-neuderzhimye-3-2014.html", color: "#ff4444"},
-  {name: "Зеленый сериал", url: "https://google.com", color: "#22c55e"},
-  {name: "Обычный (по теме)", url: "https://google.com"}
-];
+const OWNER = "bucketasmr", REPO = "my-serials-data", FILE_PATH = "my-serials.json";
+const CLOUD_URL = `https://raw.githubusercontent.com/${OWNER}/${REPO}/main/${FILE_PATH}`;
 
 let links = [];
 const container = document.getElementById('linksContainer');
@@ -175,27 +179,29 @@ const searchInput = document.getElementById('search');
 const clearBtn = document.getElementById('clearSearch');
 
 async function chooseDataSource() {
-  const choice = confirm("Нажми ОК — загрузить из облака ☁️\nНажми Отмена — загрузить из браузера 💾");
-  if (choice) await loadFromCloud();
-  else loadFromLocal();
-}
-
-function loadFromLocal() {
-  links = JSON.parse(localStorage.getItem('myLinks')) || defaultLinks;
-  renderLinks();
+  const localData = localStorage.getItem('myLinks');
+  if (localData) {
+    links = JSON.parse(localData);
+    renderLinks();
+  } else {
+    await loadFromCloud();
+  }
 }
 
 async function loadFromCloud() {
   try {
-    const url = CLOUD_URL_BASE + "?t=" + Date.now();
+    const url = CLOUD_URL + "?t=" + Date.now();
     const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) throw new Error("Cloud error");
     links = await res.json();
     localStorage.setItem('myLinks', JSON.stringify(links));
     renderLinks();
-    alert("Обновлено из облака ☁️");
+    console.log("Обновлено из облака ☁️");
   } catch (e) {
-    alert("Ошибка загрузки из облака, загружаю локально");
-    loadFromLocal();
+    console.error("Ошибка загрузки:", e);
+    const saved = localStorage.getItem('myLinks');
+    if (saved) links = JSON.parse(saved);
+    renderLinks();
   }
 }
 
@@ -209,7 +215,7 @@ function renderLinks(filter="") {
     a.textContent = link.name;
 
     // Настройка ссылки
-    if (!link.url || link.url.trim() === "") {
+    if (!link.url || link.url.trim() === "" || link.url === "https://") {
       a.href = "#";
       a.onclick = (e) => { e.preventDefault(); alert("Добавь ссылку ⚠"); };
     } else {
@@ -220,10 +226,16 @@ function renderLinks(filter="") {
     }
 
     // ЛОГИКА ИНДИВИДУАЛЬНОГО ЦВЕТА
-    if (link.color) {
-      // Устанавливаем переменную --accent только для ЭТОЙ кнопки
+    if (link.color && link.color.startsWith('#')) {
+      // ПРИНУДИТЕЛЬНО ставим цвет из JSON
       a.style.setProperty('--accent', link.color);
-      // Если нужно, чтобы и рамка, и тень в неоне работали, переменная внутри стиля справится
+      a.style.borderColor = link.color;
+      a.style.color = link.color;
+    } else {
+      // СБРАСЫВАЕМ на переменную темы из CSS
+      a.style.removeProperty('--accent');
+      a.style.borderColor = "";
+      a.style.color = "";
     }
 
     container.appendChild(a);
@@ -236,22 +248,28 @@ const styleSelect = document.getElementById("styleSelect");
 const colsSelect = document.getElementById("colsSelect");
 
 function applyTheme() {
-  document.documentElement.style.setProperty('--accent', colorSelect.value);
-  document.documentElement.style.setProperty('--cols', colsSelect.value);
-  document.body.className = styleSelect.value;
-  localStorage.setItem("themeColor", colorSelect.value);
-  localStorage.setItem("themeStyle", styleSelect.value);
-  localStorage.setItem("themeCols", colsSelect.value);
+  const color = colorSelect.value;
+  const style = styleSelect.value;
+  const cols = colsSelect.value;
+
+  document.documentElement.style.setProperty('--accent', color);
+  document.documentElement.style.setProperty('--cols', cols);
+  document.body.className = style;
+
+  localStorage.setItem("themeColor", color);
+  localStorage.setItem("themeStyle", style);
+  localStorage.setItem("themeCols", cols);
+  
+  // Перерисовываем ссылки, чтобы обновить стили кнопок без цвета
+  renderLinks(searchInput.value);
 }
 
-// Инициализация
+// Инициализация темы
 colorSelect.value = localStorage.getItem("themeColor") || "#ffb400";
 styleSelect.value = localStorage.getItem("themeStyle") || "";
 colsSelect.value = localStorage.getItem("themeCols") || "4";
 
-chooseDataSource();
-applyTheme();
-
+// Слушатели изменений
 colorSelect.onchange = applyTheme;
 styleSelect.onchange = applyTheme;
 colsSelect.onchange = applyTheme;
@@ -267,6 +285,10 @@ clearBtn.addEventListener("click", () => {
   clearBtn.style.display = "none";
   renderLinks("");
 });
+
+// Запуск
+chooseDataSource();
+applyTheme();
 </script>
 
 </body>
